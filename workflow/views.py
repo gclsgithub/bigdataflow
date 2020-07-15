@@ -1,6 +1,10 @@
 from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, View, FormView
 from django.contrib.auth.mixins import LoginRequiredMixin
+from rest_framework.response import Response
+from rest_framework.views import APIView
+
 try:
     import simplejson as json
 except ImportError:
@@ -18,23 +22,49 @@ from workflow.apirequest import WorkFlowAPiRequest
 from django.contrib.auth.models import User
 from workflow.util.Utils import Util
 from django.conf import settings
-from workflow.models import TempWork
+from workflow.models import TempWork, TempFlowIdRelation
+from django.contrib.auth import authenticate
 
 # Create your views here.
 # 登录后首页调用的函数，返回的是数据库中workflow_workflow表
 class Index(LoginRequiredMixin, TemplateView):
-    template_name = 'workflow/index.html'
+    template_name = 'workflow/index2.html'
+
 
     def get_context_data(self, **kwargs):
         context = super(Index, self).get_context_data(**kwargs)
+        user_name = self.request.user.username
         #context['workflows'] = Workflow.objects.all()
-        ins = WorkFlowAPiRequest(username=self.request.user.username)
+        ins = WorkFlowAPiRequest(username=user_name)
         status,data = ins.getdata(dict(per_page=20, name=''),method='get',url='/api/v1.0/workflows')
         #print(data['value'])
         if status:
             context['workflows'] = data['data']['value']
-        #print(context['workflows'])
+
+        Util.judgePremission(user_name,context)
+
+
         return context
+
+class NewPro(LoginRequiredMixin, TemplateView):
+    template_name = 'workflow/index.html'
+
+
+    def get_context_data(self, **kwargs):
+        context = super(NewPro, self).get_context_data(**kwargs)
+        user_name = self.request.user.username
+        #context['workflows'] = Workflow.objects.all()
+        ins = WorkFlowAPiRequest(username=user_name)
+        status,data = ins.getdata(dict(per_page=20, name=''),method='get',url='/api/v1.0/workflows')
+        #print(data['value'])
+        if status:
+            context['workflows'] = data['data']['value']
+
+        Util.judgePremission(user_name,context)
+
+
+        return context
+
 
 # 用于选择工作流，创建工单的函数  by kf
 class TicketCreate(LoginRequiredMixin, FormView):
@@ -49,10 +79,7 @@ class TicketCreate(LoginRequiredMixin, FormView):
         ins = WorkFlowAPiRequest(username=self.request.user.username)
         status, state_result = ins.getdata({}, method='get',
                                            url='/api/v1.0/workflows/{0}/init_state'.format(workflow_id))
-        # print(1)
-        # print(state_result)
         state_result = state_result['data']
-
         self.kwargs.update({'state_result': state_result})
 
         #print(state_result.keys())
@@ -69,6 +96,9 @@ class TicketCreate(LoginRequiredMixin, FormView):
                     super(DynamicForm, self).__init__(*args, **kwargs)
 
             for field in state_result['field_list']:
+                if field['field_key'] == 'title':
+                    field['field_name'] = "项目名称"
+                    field['description'] = None
                 Util.createWebDirex(field,forms,form_fields,User)
                 # handle read only field
                 if field['field_attribute'] == 1:
@@ -76,7 +106,7 @@ class TicketCreate(LoginRequiredMixin, FormView):
                     ].widget.attrs['disabled'] = 'disabled'
         else:
             raise Http404()
-        print(form_fields)
+            # print(form_fields)
 
         return type('DynamicItemsForm', (DynamicForm,), form_fields)
 
@@ -95,6 +125,10 @@ class TicketCreate(LoginRequiredMixin, FormView):
             context['buttons'] = state_result['transition']
         #print(3)
         #print(context)
+        try:
+            Util.judgePremission(self.request.user.username, context)
+        except:
+            pass
         return context
 
     def form_valid(self, form):
@@ -152,9 +186,24 @@ class MyTicket(LoginRequiredMixin, TemplateView):
         status,state_result = ins.getdata(parameters=dict(category='owner'),method='get',url='/api/v1.0/tickets')
         if status:
             if len(state_result) > 0 and isinstance(state_result,dict) and 'data' in state_result.keys() and 'value' in state_result['data'].keys():
-                context['ticket_result_restful_list'] = state_result['data']['value']
+                resultList = state_result['data']['value']
+                for item in resultList:
+                    try:
+                        flowretion = TempFlowIdRelation.objects.get(ticket_id=item['id'])
+                        item['project_id'] = flowretion.project_id
+                    except:
+                        item['project_id'] = "等待指定"
+                    if item['state']['state_name'] == '施工进度':
+                        item['showFlowChatFlag'] = True
+                    else:
+                        item['showFlowChatFlag'] = False
+                context['ticket_result_restful_list'] = resultList
         context['msg'] = state_result['msg']
         #print(context)
+        try:
+            Util.judgePremission(self.request.user.username, context)
+        except :
+            pass
         return context
 
 # 在我创建的页面中点击“详情”，显示工单的详情页面  by kf
@@ -195,6 +244,12 @@ class TicketDetail(LoginRequiredMixin, FormView):
                     super(DynamicForm, self).__init__(*args, **kwargs)
 
             find_is_null = False
+            j_shigongjindu_float_zonghengzumaosuo  = ""
+            j_shigongjindu_float_zongqiefengzhuankong = ""
+            j_shigongjindu_float_zongbaopoliefeng = ""
+            j_shigongjindu_float_muqianhengzumaosuo = ""
+            j_shigongjindu_float_muqianqiefengzhuankong = ""
+            j_shigongjindu_float_muqianbaopoliefeng = ""
             try:
                 temWork = TempWork.objects.get(ticket_id=ticket_id)
 
@@ -216,9 +271,9 @@ class TicketDetail(LoginRequiredMixin, FormView):
 
                 attributeFlag = field["field_attribute"]
                 # 1只读，2必填，3选填
-                #创建时候，只有是必须填写或者选填的才进行渲染  'field_key' (140598713991728) 'b_guanliyuanshenpi_char_xiangmubianhao'
+                #创建时候，只有是必须填写或者选填的才进行渲染  'field_key' (140598713991728) 'b_guanliyuanshenpi_char_xiangmuliushuihao'
                 if  attributeFlag != 1 :
-                    if field['field_key']  == 'b_guanliyuanshenpi_char_xiangmubianhao':
+                    if field['field_key']  == 'b_guanliyuanshenpi_char_xiangmuliushuihao':
                         field['field_attribute'] =  3
 
                     if field['field_key']  == 'j_shigongjindu_float_zonghengzumaosuo':
@@ -239,7 +294,16 @@ class TicketDetail(LoginRequiredMixin, FormView):
                     if field['field_key']  == 'j_shigongjindu_float_muqianbaopoliefeng':
                         field['default_value'] = j_shigongjindu_float_muqianbaopoliefeng
 
+                    if field['field_key']  == 'b_guanliyuanshenpi_char_xiangmubianhao':
+                        try:
+                            flowretion = TempFlowIdRelation.objects.get(ticket_id=self.kwargs.get('ticket_id'))
+                            field['default_value'] = flowretion.project_id
+                        except:
+                            pass
+
                     out_list.append(field)
+
+
                     Util.createWebDirex(field, forms, form_fields, User)
                 # handle read only field
                 # if field['field_attribute'] == 1:
@@ -262,15 +326,12 @@ class TicketDetail(LoginRequiredMixin, FormView):
         state_result = self.kwargs.get('state_result', None)
         state_result2 = self.kwargs.get('state_result2', None)
 
-        for result in state_result2:
-
-            if settings.WORKTEMPSAVEBUTTONNAME == result['transition_name']:
-                context['show_stpe'] = True
-                context['temp_savebutton'] = settings.FLOWINPUTSTR
-                break
-
-
-
+        if not state_result2 == None:
+            for result in state_result2:
+                if settings.WORKTEMPSAVEBUTTONNAME == result['transition_name']:
+                    context['show_stpe'] = True
+                    context['temp_savebutton'] = settings.FLOWINPUTSTR
+                    break
         workflow_name = ""
         if 'workflow_name' in self.request.GET.keys() :
             workflow_name = str(self.request.GET['workflow_name']).strip()
@@ -278,10 +339,10 @@ class TicketDetail(LoginRequiredMixin, FormView):
         flow_code = state_result['sn']
 
         flow_code = flow_code[flow_code.find("_")+1::]
-
         #为了组建显示
         context['state_result'] = state_result
         context['workflow_name'] = workflow_name
+        self.request.session["workflow_name"] = workflow_name
         context['flow_code'] = flow_code
         #查找日志
         context['ticket_id'] = self.kwargs.get('ticket_id')
@@ -293,6 +354,11 @@ class TicketDetail(LoginRequiredMixin, FormView):
 
         #按钮显示
         context['buttons'] = state_result2
+
+        try:
+            Util.judgePremission(self.request.user.username, context)
+        except:
+            pass
 
         return context
 
@@ -329,6 +395,18 @@ class TicketDetail(LoginRequiredMixin, FormView):
             status, state_result = ins.getdata(data=form_data, method='patch',
                                                url='/api/v1.0/tickets/{0}'.format(ticket_id))
 
+            if  form_data['b_guanliyuanshenpi_char_xiangmubianhao'] != None :
+                try:
+                    tempFlowIdRelation = TempFlowIdRelation.objects.get(ticket_id=ticket_id)
+                    tempFlowIdRelation.ticket_id = state_result["ticket_id"]
+                    tempFlowIdRelation.project_id = form_data['b_guanliyuanshenpi_char_xiangmubianhao']
+                    tempFlowIdRelation.save()
+                except:
+                    tempFlowIdRelation = TempFlowIdRelation()
+                    tempFlowIdRelation.ticket_id = ticket_id
+                    tempFlowIdRelation.project_id = form_data['b_guanliyuanshenpi_char_xiangmubianhao']
+                    tempFlowIdRelation.save()
+
         return super().form_valid(form)
 
 
@@ -354,11 +432,23 @@ class MyToDoTicket(LoginRequiredMixin, TemplateView):
         ins = WorkFlowAPiRequest(username=self.request.user.username)
         status,state_result = ins.getdata(parameters=dict(category='duty'),method='get',url='/api/v1.0/tickets')
         #print(state_result)
+        resultList = state_result['data']['value']
+        for item in resultList:
+            try:
+                flowretion = TempFlowIdRelation.objects.get(ticket_id=item['id'])
+                item['project_id'] = flowretion.project_id
+            except:
+                item['project_id'] = "等待指定"
+
         if status:
             if len(state_result) > 0 and isinstance(state_result,dict) and 'data' in state_result.keys() and isinstance(state_result['data'],dict) and 'value' in state_result['data'].keys():
                 context['ticket_result_restful_list'] = state_result['data']['value']
         context['msg'] = state_result['msg']
         #print(context)
+        try:
+            Util.judgePremission(self.request.user.username, context)
+        except:
+            pass
         return context
 
 #左侧菜单栏中“我相关的”页面处理函数  by kf
@@ -383,8 +473,24 @@ class MyRelatedTicket(LoginRequiredMixin, TemplateView):
         status,state_result = ins.getdata(parameters=dict(category='relation'),method='get',url='/api/v1.0/tickets')
         if status:
             if len(state_result) > 0 and isinstance(state_result,dict) and 'data' in state_result.keys() and 'value' in state_result['data'].keys():
-                context['ticket_result_restful_list'] = state_result['data']['value']
+                resultList = state_result['data']['value']
+                for item in resultList:
+                    try:
+                        flowretion = TempFlowIdRelation.objects.get(ticket_id=item['id'])
+                        item['project_id'] = flowretion.project_id
+                    except:
+                        item['project_id'] = "等待指定"
+                    if item['state']['state_name'] == '施工进度':
+                        item['showFlowChatFlag'] = True
+                    else:
+                        item['showFlowChatFlag'] = False
+                context['ticket_result_restful_list'] = resultList
         context['msg'] = state_result['msg']
+
+        try:
+            Util.judgePremission(self.request.user.username, context)
+        except:
+            pass
         return context
 
 #左侧菜单栏中“所有工单”页面处理函数  by kf
@@ -408,12 +514,29 @@ class AllTicket(LoginRequiredMixin, TemplateView):
         category = request_data.get('category')
 
         ins = WorkFlowAPiRequest(username=self.request.user.username)
-        status,state_result = ins.getdata(parameters=dict(category='all'),method='get',url='/api/v1.0/tickets')
+        status,state_result = ins.getdata(parameters=dict(category='all',per_page=per_page,page =page ),method='get',url='/api/v1.0/tickets')
         if status:
             if len(state_result) > 0 and isinstance(state_result,dict) and 'data' in state_result.keys() and 'value' in state_result['data'].keys():
-                context['ticket_result_restful_list'] = state_result['data']['value']
+                resultList = state_result['data']['value']
+                for item in resultList:
+                    if item['state']['state_name'] == '施工进度':
+                        item['showFlowChatFlag'] = True
+                    else:
+                        item['showFlowChatFlag'] = False
+                    try:
+                        flowretion = TempFlowIdRelation.objects.get(ticket_id=item['id'])
+                        item['project_id'] = flowretion.project_id
+                    except:
+                        item['project_id'] = "等待指定"
+
+                context['ticket_result_restful_list'] = resultList
         context['msg'] = state_result['msg']
-        #print(context)
+
+
+        try:
+            Util.judgePremission(self.request.user.username, context)
+        except:
+            pass
         return context
 
 #工单流转step: 用于显示工单当前状态的step图  by kf
@@ -431,14 +554,7 @@ class TicketFlowStep(LoginRequiredMixin,View):
         status,state_result = ins.getdata(parameters={},method='get',url='/api/v1.0/tickets/{0}/flowsteps'.format(self.kwargs.get('ticket_id')))
         return JsonResponse(data=state_result)
 
-# 工单流转时，可以做的操作   by kf
-class TicketTransition(LoginRequiredMixin,View):
-    """
-    工单可以做的操作
-    """
 
-    def get(self, request, *args, **kwargs):
-        pass
 
 #工单流转的记录日志    by kf
 class TicketFlowlog(LoginRequiredMixin,View):
@@ -484,7 +600,7 @@ class SaveTempFlow(LoginRequiredMixin, View):
         j_shigongjindu_float_muqianbaopoliefeng = request_data.get('j_shigongjindu_float_muqianbaopoliefeng')
 
         state_result = dict()
-        insetData = dict()
+        insertData = dict()
         temWork = TempWork()
         find_is_null = False
         try :
@@ -493,32 +609,32 @@ class SaveTempFlow(LoginRequiredMixin, View):
             recode =  eval(temWork.process_recod)
 
 
-            insetData['j_shigongjindu_float_muqianhengzumaosuo'] = str(int(recode["j_shigongjindu_float_muqianhengzumaosuo"]))
-            insetData['j_shigongjindu_float_muqianqiefengzhuankong'] = str(int(recode["j_shigongjindu_float_muqianqiefengzhuankong"]))
-            insetData['j_shigongjindu_float_muqianbaopoliefeng'] = str(int(recode["j_shigongjindu_float_muqianbaopoliefeng"]))
-            # insetData['j_shigongjindu_float_muqianhengzumaosuo'] = str(
+            insertData['j_shigongjindu_float_muqianhengzumaosuo'] = j_shigongjindu_float_muqianhengzumaosuo
+            insertData['j_shigongjindu_float_muqianqiefengzhuankong'] = j_shigongjindu_float_muqianqiefengzhuankong
+            insertData['j_shigongjindu_float_muqianbaopoliefeng'] =j_shigongjindu_float_muqianbaopoliefeng
+            # insertData['j_shigongjindu_float_muqianhengzumaosuo'] = str(
             #     int(recode["j_shigongjindu_float_muqianhengzumaosuo"]) + int(j_shigongjindu_float_muqianhengzumaosuo))
-            # insetData['j_shigongjindu_float_muqianqiefengzhuankong'] = str(
+            # insertData['j_shigongjindu_float_muqianqiefengzhuankong'] = str(
             #     int(recode["j_shigongjindu_float_muqianqiefengzhuankong"]) + int(
             #         j_shigongjindu_float_muqianqiefengzhuankong))
-            # insetData['j_shigongjindu_float_muqianbaopoliefeng'] = str(
+            # insertData['j_shigongjindu_float_muqianbaopoliefeng'] = str(
             #     int(recode["j_shigongjindu_float_muqianbaopoliefeng"]) + int(j_shigongjindu_float_muqianbaopoliefeng))
 
             find_is_null = True
         except TempWork.DoesNotExist:
             pass
 
-        insetData['j_shigongjindu_float_zonghengzumaosuo'] = j_shigongjindu_float_zonghengzumaosuo
-        insetData['j_shigongjindu_float_zongqiefengzhuankong'] = j_shigongjindu_float_zongqiefengzhuankong
-        insetData['j_shigongjindu_float_zongbaopoliefeng'] = j_shigongjindu_float_zongbaopoliefeng
+        insertData['j_shigongjindu_float_zonghengzumaosuo'] = j_shigongjindu_float_zonghengzumaosuo
+        insertData['j_shigongjindu_float_zongqiefengzhuankong'] = j_shigongjindu_float_zongqiefengzhuankong
+        insertData['j_shigongjindu_float_zongbaopoliefeng'] = j_shigongjindu_float_zongbaopoliefeng
 
         if not find_is_null:
-            insetData['j_shigongjindu_float_muqianhengzumaosuo'] = j_shigongjindu_float_muqianhengzumaosuo
-            insetData['j_shigongjindu_float_muqianqiefengzhuankong'] = j_shigongjindu_float_muqianqiefengzhuankong
-            insetData['j_shigongjindu_float_muqianbaopoliefeng'] = j_shigongjindu_float_muqianbaopoliefeng
+            insertData['j_shigongjindu_float_muqianhengzumaosuo'] = j_shigongjindu_float_muqianhengzumaosuo
+            insertData['j_shigongjindu_float_muqianqiefengzhuankong'] = j_shigongjindu_float_muqianqiefengzhuankong
+            insertData['j_shigongjindu_float_muqianbaopoliefeng'] = j_shigongjindu_float_muqianbaopoliefeng
 
         temWork.ticket_id = ticket_id
-        temWork.process_recod =str (insetData)
+        temWork.process_recod =str (insertData)
         temWork.save()
 
         return JsonResponse(data=state_result)
@@ -557,11 +673,13 @@ class GetUserName(LoginRequiredMixin,View):
 class downloadFile(LoginRequiredMixin, View):
     def get(self, request, *args, **kwargs):
         path = request.GET.get('path')
+        filename = path.split("/")[len(path.split("/"))-1]
 
         file = open(path,'rb')
         response = FileResponse(file)
         response['Content-Type'] = 'application/octet-stream'
-        response['Content-Disposition'] = 'attachment;filename="'+path.split("/")[len(path.split("/"))-1]+'"'
+        #下载带有中文的文件，需要对编码进行修改
+        response['Content-Disposition'] = 'attachment;filename="'+ filename.encode('utf-8').decode('ISO-8859-1')
         return response
 
 
@@ -599,6 +717,10 @@ class TickeFlowDetail(LoginRequiredMixin, FormView):
     def get_context_data(self, **kwargs):
         context = super(TickeFlowDetail, self).get_context_data(**kwargs)
         context['ticket_id'] = self.kwargs.get('ticket_id')
+        try:
+            Util.judgePremission(self.request.user.username, context)
+        except:
+            pass
         return context
 
 
@@ -640,7 +762,11 @@ class TicketBeforeFlowStep(LoginRequiredMixin, FormView):
                     super(DynamicForm, self).__init__(*args, **kwargs)
 
             for field in state_result['field_list']:
-
+                if field['field_key'] == 'title':
+                    field['field_name'] = "项目名称"
+                    field['description'] = None
+                if field['field_key'] == 'b_guanliyuanshenpi_char_xiangmuliushuihao':
+                    field['field_value'] = self.request.session["workflow_name"] + state_result["sn"]
                 attributeFlag = field["field_attribute"]
                 # 将控件的值提读出来
                 field["default_value"] = field["field_value"]
@@ -712,6 +838,139 @@ class TicketBeforeFlowStep(LoginRequiredMixin, FormView):
         # title 文件存储的路径
         context['title'] = self.kwargs.get('title')
 
+        try:
+            Util.judgePremission(self.request.user.username, context)
+        except:
+            pass
+
         return context
+
+
+class Mail(APIView):
+
+    def post(self,request):
+
+        # 通知标题，在工作流配置中会配置标题模板，此处将根据工单的信息生成实际的标题
+        title_result = request.GET.get("title_result")
+
+        # 通知内容，在工作流配置中会配置内容模板，此处将根据工单的信息生成实际的内容
+        content_result = request.GET.get("content_result")
+
+        # 当前参与人类型, 类型定义见文档中"常量说明", hook服务方需根据类型决定是否发送消息
+        participant_type_id = request.GET.get("participant_type_id")
+
+        # 该字段中将包含工单所有字段的值，一般情况下发送消息时候根据标题和内容发送即可，
+        ticket_value_info = request.GET.get("ticket_value_info")
+
+        # 工单的最近一条处理记录，发送通知消息时可以根据自己需要决定消息中是否包含这个信息
+        last_flow_log = request.GET.get("last_flow_log")
+
+        # 工单的当前处理人信息列表， 是一个数组，每个记录中都包含处理人的username, alias, email, phone
+        participant_info_list = request.GET.get("participant_info_list")
+
+        myuserme = request.GET.get("username")
+        findUser = User.objects.get(username=myuserme)
+
+        Util.send_register_active_email(findUser.email, findUser.username, "内容测试")
+
+        # for item in participant_info_list:
+        #     try:
+        #         findUser = User.objects.all(username=item["username"])
+        #         # 发送激活邮件，包含一个激活的链接在（get请求）
+        #         Util.send_register_active_email(findUser.email, title_result , content_result)
+        #     except:
+        #         pass
+
+        return Response({
+            'status': 0,
+            'msg': 'ok',
+            'results': {
+
+            }
+        })
+
+        #Util.gen_signature_by_token(token)
+
+class Console(APIView):
+    def get(self, request):
+        ins = WorkFlowAPiRequest(username="admin")
+        status, state_result = ins.getdata( method='get', url='/api/v1.0/tickets/num_statistics')
+        # print(state_result)
+        return Response({
+            'code': 0,
+            'msg': 'ok',
+            'data': state_result['data']
+        })
+
+class RevicePageData(APIView):
+    def get(self, request):
+        params = json.loads(dict(request.query_params)['dataArray'][0])
+        per_page = int(params['pagesize'])
+        page = int(params['page'])
+        category = params['category']
+
+        ins = WorkFlowAPiRequest(username=self.request.user.username)
+        status, state_result = ins.getdata(parameters=dict(category=category, per_page=per_page, page=page), method='get',
+                                           url='/api/v1.0/tickets')
+
+        status2, state_result2 = ins.getdata(parameters=dict(category=category, per_page=10000000, page=1),
+                                           method='get',
+                                           url='/api/v1.0/tickets')
+
+        outlist = list()
+
+        if status:
+            if len(state_result) > 0 and isinstance(state_result, dict) and 'data' in state_result.keys() and 'value' in state_result['data'].keys():
+                resultList = state_result['data']['value']
+                for item in resultList:
+                    flowid = item['workflow_info']['workflow_name'] + item['sn']
+                    projectid = "等待指定"
+                    try:
+                        flowretion = TempFlowIdRelation.objects.get(ticket_id=item['id'])
+                        projectid = flowretion.project_id
+                    except:
+                        pass
+                    title = item['title']
+                    state_name = item['state']['state_name']
+                    creator = item['creator']
+                    gmt_created = item['gmt_created']
+                    gmt_modified = item['gmt_modified']
+                    id = item["id"]
+                    workflow_name = item["workflow_info"]["workflow_name"]
+
+                    a_href = "<a href='/workflow/ticket/{0}/?workflow_name={1}'>详情</a>".format(id,workflow_name)
+                    if item['state']['state_name'] == '施工进度':
+                        a_href = a_href + ("&nbsp;|&nbsp; <a href='/workflow/{}/tickeflowdetail'>进度</a> ".format(id))
+                    action = a_href
+
+                    outdic = {
+                        'flowid': flowid,
+                        'projectid': title,
+                        'title':title,
+                        'state_name': state_name,
+                        'creator': creator,
+                        'gmt_created':gmt_created,
+                        'gmt_modified': gmt_modified,
+                        'action': action,
+
+                    }
+                    outlist.append(outdic)
+
+        return Response({
+            'code': 0,
+            'msg': 'ok',
+            'totalCount':len(outlist),
+            'totalCounts': len(state_result2['data']['value']),
+            'data':outlist
+        })
+
+
+
+
+
+
+
+
+
 
 

@@ -4,7 +4,7 @@
 {#{% load crispy_forms_tags %}#}
 {% if title %}
     {% block title %}
-        项目详情
+        施工进度
     {% endblock %}
 {% endif %}
 {% block js %}
@@ -16,6 +16,7 @@
 <script type="text/javascript" src="{% static 'select2/dist/js/select2.full.min.js' %}"></script>
 <script src="{% static 'flatpickr/dist/flatpickr.min.js' %}"></script>
 <script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
 <script type="application/javascript">
     $.ajax({
         url: '{% url 'flowdataflap' ticket_id%}',
@@ -40,7 +41,7 @@
 
 
             addItem(showData);
-            add3(showData2);
+            addItem3(showData2);
 
         },
         error: function(data, textStatus, jqXHR) {
@@ -48,11 +49,7 @@
         }
     });
 
-    function addItem2(data) {
-        $("#bar_1").css("width",data.item_1+"%");
-        $("#bar_2").css("width",data.item_2+"%");
-        $("#bar_3").css("width",data.item_3+"%");
-    }
+
     function addItem(data) {
 
         var options = {
@@ -61,7 +58,7 @@
         }],
           chart: {
           type: 'bar',
-          height: 380
+          height: 300
         },
         plotOptions: {
           bar: {
@@ -94,7 +91,7 @@
           colors: ['#fff']
         },
         xaxis: {
-          categories: ['恒阻锚索','切缝钻孔', '切缝钻孔'],
+          categories: ['恒阻锚索','切缝钻孔', '爆破裂缝'],
         },
         yaxis: {
           labels: {
@@ -102,7 +99,7 @@
           }
         },
         title: {
-            text: '项目进度一览',
+            text: '施工进度已完成量',
             align: 'center',
             floating: true
         },
@@ -127,14 +124,14 @@
         var chart = new ApexCharts(document.querySelector("#chart"), options);
         chart.render();
     }
-    function add3(data) {
+    function addItem3(data) {
 
         var options = {
           series: [{
           name: '已完成量',
           data: [data.findsh1, data.findsh2,data.findsh3]
         }, {
-          name: '未成成量',
+          name: '未完成量',
           data: [data.unfindsh1, data.unfindsh2,data.unfindsh3]
         }],
           chart: {
@@ -148,15 +145,23 @@
             horizontal: true,
           },
         },
+        colors: ['#1bdfa3', '#797a77', '#d4526e', '#13d8aa', '#A5978B', '#2b908f', '#f9a3a4', '#90ee7e',
+          '#f48024', '#69d2e7'],
         stroke: {
           width: 1,
           colors: ['#fff']
         },
         title: {
-          text: '项目进度一览'
+          text: '施工进度',
+          align: 'center',
         },
         xaxis: {
-          categories:  ['恒阻锚索','切缝钻孔', '切缝钻孔'],
+          categories:  ['恒阻锚索','切缝钻孔', '爆破裂缝'],
+          labels: {
+              formatter: function (val) {
+              return val + "%"
+            }
+          }
         },
         tooltip: {
           y: {
@@ -182,19 +187,40 @@
     }
 </script>
 {% endblock %}
-{% block css %}
 
+{% block css %}
 <link rel="stylesheet" href="{% static 'bower_components/bootstrap/dist/css/bootstrap.min.css' %}" >
+
 <style type="text/css">
+    .skip-page{
+        margin-left: 35px;
+        font-size: 20px;
+    }
 </style>
 {% endblock %}
+
+{% block head_ext %}
+<!-- Content Header (Page header) -->
+<section class="content-header">
+    <h1>
+        {{app_label}}
+        <small>{{title|capfirst}}</small>
+    </h1>
+    <ol class="breadcrumb">
+        <li><a href="/"><i class="fa fa-dashboard"></i>首页</a></li>
+
+        <li class="active">施工进度</li>
+    </ol>
+</section>
+{{extra_content}}{% endblock %}
+
 {% block content %}
      <div class="row">
-        <a href="javascript:void(0)" class="skip-page"  onclick="history.back()" style="text-decoration:underline;">返回审核</a>
-        <div id="chart" style="width: 70%;margin-left: 100px;margin-top: 20px;">
+        <a href="javascript:void(0)" class="skip-page"  onclick="history.back()" style="text-decoration:underline;">返回</a>
+        <div id="chart" style="width: 80%;margin-left: 100px;margin-top: 20px;">
         </div>
 
-     <div id="chart2" style="width: 70%;margin-left: 100px;margin-top: 20px;">
+     <div id="chart2" style="width: 80%;margin-left: 100px;margin-top: 20px;">
         </div>
     </div>
 

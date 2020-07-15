@@ -1,6 +1,13 @@
-from ckeditor_uploader.widgets import CKEditorUploadingWidget
-import os
+import hashlib
+import smtplib
+import time
 
+import os
+from email.mime.text import MIMEText
+from email.header import Header
+
+from django.contrib.auth.models import User
+from django.conf import settings
 
 
 class Util (object):
@@ -146,3 +153,62 @@ class Util (object):
             print('保存成功')
         except Exception as e:
             print('保存失败', e)
+
+    @classmethod
+    def judgePremission(self,user_name,context):
+        permissionlist = list(User.objects.get(username=user_name).get_all_permissions())
+
+        if settings.NEWPRO in permissionlist:
+            context['showMenu1'] = True
+        if settings.MYPRO in permissionlist:
+            context['showMenu2'] = True
+        if settings.MYTODO in permissionlist:
+            context['showMenu3'] = True
+        if settings.MYRELA in permissionlist:
+            context['showMenu4'] = True
+        if settings.ALL in permissionlist:
+            context['showMenu5'] = True
+
+    @classmethod
+    def gen_signature_by_token(cls, token: str) -> tuple:
+        md5_key = token
+        timestamp = str(int(time.time()))
+        ori_str = timestamp + md5_key
+        tar_str = hashlib.md5(ori_str.encode(encoding='utf-8')).hexdigest()
+        return True, dict(signature=tar_str, timestamp=timestamp)
+
+
+    @classmethod
+
+    def send_register_active_email(cls,to_main_user_mail, subjects, content):
+
+        msg11 = "尊敬的用户，您有新的待办<br>请尽快处理。"
+
+        # msg11 = content
+        mail_host = settings.EMAIL_HOST  # 设置服务器
+        mail_user = settings.EMAIL_FROM  # 用户名
+        mail_pass = settings.EMAIL_HOST_PASSWORD  # "dkhafgqsflsjbhhg" 口令,QQ邮箱是输入授权码，在qq邮箱设置 里用验证过的手机发送短信获得，不含空格
+
+        sender = settings.EMAIL_FROM
+        receivers = [to_main_user_mail]  # 接收邮件，可设置为你的QQ邮箱或者其他邮箱
+
+        # 设置格式
+        message = MIMEText(msg11, 'html', 'utf-8')
+        message['From'] = settings.EMAIL_FROM_TITLE
+        message['To'] = to_main_user_mail
+
+        #主题
+        subject = '项目待办提醒'
+        # subject = subjects
+        message['Subject'] = Header(subject, 'utf-8')
+
+        try:
+            smtpObj = smtplib.SMTP_SSL(mail_host, settings.EMAIL_PORT)
+            smtpObj.login(mail_user, mail_pass)
+            smtpObj.sendmail(sender, receivers, message.as_string())
+            smtpObj.quit()
+            print(u"邮件发送成功")
+        except smtplib.SMTPException as e:
+            print(e)
+            pass
+

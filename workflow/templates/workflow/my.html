@@ -16,6 +16,7 @@
             "lengthChange": true,
             "searching": true,
             "ordering": true,
+            "order": [[ 0, "desc" ]],
             "info": true,
             "iDisplayLength": 10,
             "autoWidth": false,
@@ -72,6 +73,7 @@
                         <table class="table table-striped table-bordered table-hover dt-responsive" width="100%" id="sample_3" cellspacing="0" width="100%">
                         <thead>
                         <tr>
+                            <th >项目流水号</th>
                             <th >项目编号</th>
                             <th >项目名称</th>
 {#                            <th >业务流程</th>#}
@@ -87,13 +89,20 @@
                             {% for ticket in ticket_result_restful_list %}
                         <tr>
                             <td>{{ticket.workflow_info.workflow_name}}{{ticket.sn}}</td>
+                            <td>{{ticket.project_id}}</td>
                             <td>{{ticket.title}}</td>
 {#                            <td>{{ticket.workflow_info.workflow_name}}</td>#}
                             <td>{{ticket.state.state_name}}</td>
                             <td>{{ticket.creator}}</td>
                             <td>{{ticket.gmt_created}}</td>
                             <td>{{ticket.gmt_modified}}</td>
-                            <td><a href="{% url 'ticketdetailtable' ticket.id %}?workflow_name= {{ticket.workflow_info.workflow_name}}">详情</a></td>
+                            <td>
+                                <a href="{% url 'ticketdetailtable' ticket.id %}?workflow_name= {{ticket.workflow_info.workflow_name}}">详情</a>
+                                {% if ticket.showFlowChatFlag %}
+                                    &nbsp;|&nbsp;
+                                    <a href="{% url 'tickeflowdetail' ticket.id %}">进度</a>
+                                {% endif %}
+                            </td>
                         </tr>
                             {% endfor %}
                         {% endif %}

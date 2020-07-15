@@ -1,0 +1,58 @@
+{#该页面为用户登录后的显示页面，#}
+{#该页面继承adminlte/base.html里的页面格式和页面内容。#}
+{% extends 'adminlte/base.html' %}
+{% load staticfiles %}
+{% if title %}
+    {% block title %}
+        首页
+    {% endblock %}
+{% endif %}
+{% block js %}
+<script type="text/javascript" charset="utf8" src="{% static 'datatables/media/js/jquery.dataTables.min.js'%} "></script>
+<script type="text/javascript" charset="utf8" src="{% static 'datatables/media/js/dataTables.bootstrap.min.js'%} "></script>
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+<script type="text/javascript" charset="utf8" src="{% static 'js/overview.js'%} "></script>
+<script type="text/javascript" charset="utf8" src="{% static 'js/g2.min.js'%} "></script>
+{#<script src="https://gw.alipayobjects.com/os/lib/antv/g2/3.4.10/dist/g2.min.js"></script>#}
+<script type="text/javascript">
+
+</script>
+{% endblock %}
+{% block css %}
+<link rel="stylesheet" type="text/css" href="{% static 'datatables/media/css/dataTables.bootstrap.min.css' %}">
+
+{% endblock %}
+
+{% block head_ext %}
+<!-- Content Header (Page header) -->
+    <section class="content-header">
+        <h1>
+            {{app_label}}
+            <small>首页</small>
+        </h1>
+        <ol class="breadcrumb">
+            <li><a href="/"><i class="fa fa-dashboard"></i>首页</a></li>
+            <li class="active">{{model}}</li>
+        </ol>
+    </section>
+{{extra_content}}{% endblock %}
+
+{% block content %}
+<div class="row">
+ <!-- Main content -->
+    <section class="content">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="box">
+                    <div class="box-header with-border">
+                        <h3 class="box-title">项目新增统计</h3>
+                    </div>
+                    <div id="mountNode"></div>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+

@@ -4,7 +4,7 @@
 {#{% load crispy_forms_tags %}#}
 {% if title %}
     {% block title %}
-        工单详情
+        项目详情
     {% endblock %}
 {% endif %}
 {% block js %}
@@ -22,7 +22,7 @@
 	var array_key = [];   //field_key
 	var array_data = [];  //value
 
-    var project_id_dom  = $("input[name='b_guanliyuanshenpi_char_xiangmubianhao']");
+    var project_id_dom  = $("input[name='b_guanliyuanshenpi_char_xiangmuliushuihao']");
     var project_attention_dom  = $("textarea[name='g_sanfanghuiqian_text_sanfanghuiqian']");
     var workflow_name  =  $("input[name='workflow_name']").val();
     var flow_code =  $("input[name='flow_code']").val();
@@ -136,7 +136,7 @@
         if ($(this).prop("innerText") == "提交施工进度数据"){
             clearCheck();
 
-            var buttons = $("input[name='temp_savebutton']").val().split(",");
+            {#var buttons = $("input[name='temp_savebutton']").val().split(",");#}
 
             var formdata = new Object();
 
@@ -314,8 +314,8 @@
 
         {% if show_stpe %}
             <br>
-            <a href="{% url 'tickeflowdetail' ticket_id %}" class="skip-page" style="text-decoration:underline;">查看进度</a>
-            <input type="hidden" name = "temp_savebutton" value="{{ temp_savebutton }}">
+            <a href="{% url 'tickeflowdetail' ticket_id %}" class="skip-page" style="text-decoration:underline;">查看施工进度</a>
+{#            <input type="hidden" name = "temp_savebutton" value="{{ temp_savebutton }}">#}
         {% endif %}
 
         <form id="id-m-form" action="" method="post" class="myform" role="form" enctype="multipart/form-data">

@@ -17,32 +17,43 @@
             </div>
         </div>
         <!-- search form -->
-        <form action="#" method="get" class="sidebar-form">
-            <div class="input-group">
-                <input type="text" name="q" class="form-control" placeholder="Search...">
-                <span class="input-group-btn">
-                <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i>
-                </button>
-              </span>
-            </div>
-        </form>
+{#        <form action="#" method="get" class="sidebar-form">#}
+{#            <div class="input-group">#}
+{#                <input type="text" name="q" class="form-control" placeholder="Search...">#}
+{#                <span class="input-group-btn">#}
+{#                <button type="submit" name="search" id="search-btn" class="btn btn-flat"><i class="fa fa-search"></i>#}
+{#                </button>#}
+{#              </span>#}
+{#            </div>#}
+{#        </form>#}
         <!-- /.search form -->
         <!-- sidebar menu: : style can be found in sidebar.less -->
         <ul class="sidebar-menu" data-widget="tree">
             <li class="header">导航栏</li>
+            <li id="overview"><a href="/"><i class="fa fa-dashboard"></i> <span>首页</span></a></li>
             <li class="treeview active">
                 <a href="#">
                     <i class="fa fa-share"></i> <span>工法系统</span>
                     <span class="pull-right-container">
-              <i class="fa fa-angle-left pull-right"></i>
-            </span>
+                        <i class="fa fa-angle-left pull-right"></i>
+                    </span>
                 </a>
                 <ul class="treeview-menu">
-                    <li><a href="{% url 'workflow-index' %}"><i class="fa fa-circle-o"></i>新建项目</a></li>
-                    <li><a href="{% url 'ticket-my' %}"><i class="fa fa-circle-o"></i>我创建的</a></li>
-                    <li><a href="{% url 'ticket-my-todo' %}"><i class="fa fa-circle-o"></i>我的待办</a></li>
-                    <li><a href="{% url 'ticket-my-related' %}"><i class="fa fa-circle-o"></i>我相关的</a></li>
-                    <li><a href="{% url 'ticket-all' %}"><i class="fa fa-circle-o"></i>所有项目</a></li>
+                    {% if showMenu1 %}
+                        <li><a href="{% url 'workflow-newpro' %}"><i class="fa fa-circle-o"></i>新建项目</a></li>
+                    {% endif %}
+                    {% if showMenu2 %}
+                      <li><a href="{% url 'ticket-my' %}"><i class="fa fa-circle-o"></i>我创建的</a></li>
+                    {% endif %}
+                    {% if showMenu3 %}
+                        <li><a href="{% url 'ticket-my-todo' %}"><i class="fa fa-circle-o"></i>我的待办</a></li>
+                    {% endif %}
+                    {% if showMenu4 %}
+                        <li><a href="{% url 'ticket-my-related' %}"><i class="fa fa-circle-o"></i>我相关的</a></li>
+                    {% endif %}
+                    {% if showMenu5 %}
+                        <li><a href="{% url 'ticket-all' %}"><i class="fa fa-circle-o"></i>所有项目</a></li>
+                {% endif %}
                 </ul>
             </li>
         </ul>
