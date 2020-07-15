@@ -30,13 +30,17 @@
                 item_3:data.j_shigongjindu_float_muqianbaopoliefeng,
             };
             var showData2 = {
-                item_1:Math.round(eval(data.j_shigongjindu_float_muqianhengzumaosuo)/eval(data.j_shigongjindu_float_zonghengzumaosuo)*100),
-                item_2:Math.round(eval(data.j_shigongjindu_float_muqianqiefengzhuankong)/eval(data.j_shigongjindu_float_zongqiefengzhuankong)*100),
-                item_3:Math.round(eval(data.j_shigongjindu_float_muqianbaopoliefeng)/eval(data.j_shigongjindu_float_muqianbaopoliefeng)*100),
+                findsh1:data.j_shigongjindu_float_muqianhengzumaosuo,
+                findsh2:data.j_shigongjindu_float_muqianqiefengzhuankong,
+                findsh3:data.j_shigongjindu_float_muqianbaopoliefeng,
+                unfindsh1: eval(data.j_shigongjindu_float_zonghengzumaosuo) - eval(data.j_shigongjindu_float_muqianhengzumaosuo),
+                unfindsh2: eval(data.j_shigongjindu_float_zongqiefengzhuankong) - eval(data.j_shigongjindu_float_muqianqiefengzhuankong),
+                unfindsh3: eval(data.j_shigongjindu_float_zongbaopoliefeng) - eval(data.j_shigongjindu_float_muqianbaopoliefeng),
             };
+
+
             addItem(showData);
-            addItem2(showData2);
-            add3();
+            add3(showData2);
 
         },
         error: function(data, textStatus, jqXHR) {
@@ -123,18 +127,15 @@
         var chart = new ApexCharts(document.querySelector("#chart"), options);
         chart.render();
     }
-    function add3() {
+    function add3(data) {
 
         var options = {
           series: [{
-          name: 'Marine Sprite',
-          data: [44, 55,11]
+          name: '已完成量',
+          data: [data.findsh1, data.findsh2,data.findsh3]
         }, {
-          name: 'Striking Calf',
-          data: [53, 32,11]
-        }, {
-          name: 'Tank Picture',
-          data: [12, 17,22]
+          name: '未成成量',
+          data: [data.unfindsh1, data.unfindsh2,data.unfindsh3]
         }],
           chart: {
           type: 'bar',
@@ -152,15 +153,15 @@
           colors: ['#fff']
         },
         title: {
-          text: '100% Stacked Bar'
+          text: '项目进度一览'
         },
         xaxis: {
-          categories: [2008, 2009, 2010],
+          categories:  ['恒阻锚索','切缝钻孔', '切缝钻孔'],
         },
         tooltip: {
           y: {
             formatter: function (val) {
-              return val + "K"
+              return val + "米"
             }
           }
         },
@@ -191,18 +192,6 @@
      <div class="row">
         <a href="javascript:void(0)" class="skip-page"  onclick="history.back()" style="text-decoration:underline;">返回审核</a>
         <div id="chart" style="width: 70%;margin-left: 100px;margin-top: 20px;">
-        </div>
-
-        <div id="percent_chart" style="width: 60%;margin-left: 100px;margin-top: 40px;">
-            <div class="progress">
-            <div class="bar_1" id = "bar_1" style="width: 20%"></div>
-            </div>
-            <div class="progress">
-            <div class="bar_2" id = "bar_2"  style="width: 40%"></div>
-            </div>
-            <div class="progress">
-            <div class="bar_3" id = "bar_3"  style="width: 60%"></div>
-            </div>
         </div>
 
      <div id="chart2" style="width: 70%;margin-left: 100px;margin-top: 20px;">
